@@ -1,11 +1,22 @@
-# 가벼운 파이썬 이미지 사용
-FROM python:3.9-alpine
-
-# 작업 폴더 생성
+# [Build Stage] Gradle로 소스 코드 빌드
+FROM gradle:8-jdk17-alpine AS builder
 WORKDIR /app
 
-# 파이썬 스크립트 복사
-COPY server.py .
+# 캐싱을 위해 설정 파일 먼저 복사
+COPY build.gradle settings.gradle ./
+# 의존성 다운로드 (실패해도 넘어가도록 설정)
+RUN gradle dependencies --no-daemon || true
 
-# 실행 (로그가 바로 보이게 -u 옵션 사용)
-CMD ["python", "-u", "server.py"]
+# 소스 코드 전체 복사 및 빌드 (Test 제외)
+COPY . .
+RUN gradle bootJar --no-daemon -x test
+
+# [Run Stage] 실제 실행할 가벼운 환경
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+
+# 빌드 결과물(jar)만 가져오기
+COPY --from=builder /app/build/libs/*.jar app.jar
+
+# 실행
+ENTRYPOINT ["java", "-jar", "app.jar"]
