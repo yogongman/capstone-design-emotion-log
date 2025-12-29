@@ -3,8 +3,10 @@ pipeline {
     stages {
         stage('Prepare Environment') {
             steps {
-                // 저장해둔 .env 파일을 현재 젠킨스 워크스페이스(최상위 폴더)로 복사
-                sh 'cp /home/hoon/env_storage/.env ./'
+                // 젠킨스에 저장된 Secret file을 .env라는 이름으로 가져옵니다.
+                withCredentials([file(credentialsId: 'team-project-env', variable: 'ENV_FILE')]) {
+                    sh "cp \$ENV_FILE .env"
+                }
             }
         }
         stage('Checkout') {
