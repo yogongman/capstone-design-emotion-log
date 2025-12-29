@@ -1,6 +1,12 @@
 pipeline {
     agent any
     stages {
+        stage('Prepare Environment') {
+            steps {
+                // 저장해둔 .env 파일을 현재 젠킨스 워크스페이스(최상위 폴더)로 복사
+                sh 'cp /home/hoon/env_storage/.env ./'
+            }
+        }
         stage('Checkout') {
             steps {
                 checkout scm
