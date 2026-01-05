@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: emotion-log-backend
+
+  datasource:
+    # 1. ${변수명} : 환경변수가 있으면 그걸 씀 (젠킨스 서버 & 로컬 설정)
+    # 2. :뒤의값 : 환경변수가 없으면 이 값을 씀 (여기서는 비워두거나 localhost로 안전하게 처리)
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        show_sql: true
+
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+server:
+  port: 8080
