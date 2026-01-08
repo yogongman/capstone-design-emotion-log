@@ -1,0 +1,10 @@
+### 일기 저장 테스트 요청
+POST http://localhost:8080/api/records
+Content-Type: application/json
+
+{
+  "emotionType": "sadness",
+  "level": 80,
+  "reason": "테스트 일기입니다. DB에 들어가면 성공!",
+  "recordedAt": "2025-01-08T12:00:00"
+}
