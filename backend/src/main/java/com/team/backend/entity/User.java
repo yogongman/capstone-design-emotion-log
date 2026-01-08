@@ -5,12 +5,12 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
-@Entity // 이 클래스가 곧 DB 테이블이라는 뜻
+@Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-@Table(name = "USERS") // 'USER'는 DB 예약어라 에러가 잘 나서 'USERS'로 지정
+@Table(name = "USERS")
 public class User {
 
     @Id
@@ -30,7 +30,11 @@ public class User {
 
     private String gender;
 
-    @CreationTimestamp // 자동으로 현재 시간 저장
+    // JWT Refresh Token 저장용 (길이가 기니까 TEXT로 설정)
+    @Column(name = "refresh_token", columnDefinition = "TEXT")
+    private String refreshToken;
+
+    @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 }

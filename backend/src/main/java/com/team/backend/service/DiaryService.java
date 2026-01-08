@@ -4,7 +4,7 @@ import com.team.backend.dto.EmotionRecordRequest;
 import com.team.backend.entity.EmotionRecord;
 import com.team.backend.entity.User;
 import com.team.backend.repository.EmotionRecordRepository;
-import com.team.backend.repository.UserRepository;
+// UserRepository import 제거 (이제 안 씀)
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,13 +14,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class DiaryService {
 
     private final EmotionRecordRepository emotionRecordRepository;
-    private final UserRepository userRepository;
+
+    // UserRepository 의존성 제거됨
 
     @Transactional
-    public Long saveDiary(EmotionRecordRequest request) {
-        // 1. 임시로 1번 유저 고정 (DB에 아까 넣은 그 유저)
-        User user = userRepository.findById(1L)
-                .orElseThrow(() -> new RuntimeException("테스트 유저가 없습니다. SQL 실행하세요!"));
+    public Long saveDiary(User user, EmotionRecordRequest request) { // 파라미터로 User 받음
+        // 1. 하드코딩 삭제됨! 컨트롤러가 넘겨준 user를 바로 사용
 
         // 2. 엔티티 변환 및 저장
         EmotionRecord record = EmotionRecord.builder()
@@ -28,6 +27,7 @@ public class DiaryService {
                 .emotionType(request.getEmotionType())
                 .level(request.getLevel())
                 .reason(request.getReason())
+                // 날짜 없으면 오늘 날짜로
                 .recordedAt(request.getRecordedAt() != null ? request.getRecordedAt() : java.time.LocalDateTime.now())
                 .build();
 
