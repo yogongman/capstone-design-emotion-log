@@ -1,3 +1,64 @@
-### 일기 저장 테스트 요청
-DELETE http://localhost:8080/api/v1/records/1
-Content-Type: application/json
+### 공통 변수 설정
+@baseUrl = http://localhost:8080/api/v1
+@contentType = application/json
+
+# ==========================================
+# 1. 기록 저장 (Create) - POST /records
+# ==========================================
+# 설명: 새로운 감정 일기를 저장합니다.
+# 예상 응답: 200 OK, {"id": 101, "message": "저장되었습니다."}
+POST {{baseUrl}}/records
+Content-Type: {{contentType}}
+# Authorization: Bearer {{token}} (현재는 개발용 Resolver가 1번 유저로 자동 처리)
+
+{
+  "emotionType": "joy",
+  "level": 80,
+  "reason": "테스트 일기 저장입니다. 기분이 아주 좋아요!",
+  "recordedAt": "2025-11-27T14:00:00"
+}
+
+###
+
+# ==========================================
+# 2. 기록 수정 (Update) - PATCH /records/{recordId}
+# ==========================================
+# 설명: 저장된 일기의 내용을 수정합니다. (본인 확인 포함)
+# 주의: {recordId} 부분에 위에서 저장 후 반환받은 ID를 넣으세요. (예: 1)
+@recordIdToUpdate = 3
+
+PATCH {{baseUrl}}/records/{{recordIdToUpdate}}
+Content-Type: {{contentType}}
+
+{
+  "emotionType": "sadness",
+  "level": 40,
+  "reason": "수정된 내용입니다. 사실 조금 슬퍼졌어요."
+}
+
+###
+
+# ==========================================
+# 3. 기록 삭제 (Delete) - DELETE /records/{recordId}
+# ==========================================
+# 설명: 저장된 일기를 삭제합니다. (본인 확인 포함)
+# 주의: {recordId} 부분에 삭제할 ID를 넣으세요.
+@recordIdToDelete = 4
+
+DELETE {{baseUrl}}/records/{{recordIdToDelete}}
+Content-Type: {{contentType}}
+
+###
+
+# ==========================================
+# 4. 삭제 확인용 조회 (Optional)
+# ==========================================
+# 설명: 삭제 후 수정을 시도했을 때 500 에러가 나야 정상입니다.
+PATCH {{baseUrl}}/records/{{recordIdToDelete}}
+Content-Type: {{contentType}}
+
+{
+  "emotionType": "joy",
+  "level": 100,
+  "reason": "삭제된 글 수정 시도"
+}

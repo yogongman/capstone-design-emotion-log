@@ -17,12 +17,20 @@ public class DiaryController {
 
     private final DiaryService diaryService;
 
+    // 1. 저장 (명세서 포맷에 맞춰 JSON 반환으로 수정)
     @PostMapping
-    public ResponseEntity<String> createDiary(@LoginUser User user, @RequestBody EmotionRecordRequest request) {
+    public ResponseEntity<Map<String, Object>> createDiary(@LoginUser User user, @RequestBody EmotionRecordRequest request) {
         Long diaryId = diaryService.saveDiary(user, request);
-        return ResponseEntity.ok("✅ 일기 저장 성공! ID: " + diaryId);
+
+        // 명세서: { "id": 101, "message": "저장되었습니다." }
+        Map<String, Object> response = Map.of(
+                "id", diaryId,
+                "message", "저장되었습니다."
+        );
+        return ResponseEntity.ok(response);
     }
 
+    // 2. 수정 (기존과 동일, 명세서 준수)
     @PatchMapping("/{recordId}")
     public ResponseEntity<Map<String, Boolean>> updateDiary(
             @LoginUser User user,
@@ -33,13 +41,13 @@ public class DiaryController {
         return ResponseEntity.ok(Map.of("success", true));
     }
 
+    // 3. 삭제 (기존과 동일, 명세서 준수)
     @DeleteMapping("/{recordId}")
     public ResponseEntity<Map<String, Boolean>> deleteDiary(
             @LoginUser User user,
             @PathVariable Long recordId
     ) {
         diaryService.deleteDiary(user, recordId);
-        // 명세서 기준 { "success": true } 반환
         return ResponseEntity.ok(Map.of("success", true));
     }
 }
