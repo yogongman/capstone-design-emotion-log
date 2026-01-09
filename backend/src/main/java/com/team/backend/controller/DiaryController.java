@@ -2,12 +2,14 @@ package com.team.backend.controller;
 
 import com.team.backend.annotation.LoginUser;
 import com.team.backend.dto.EmotionRecordRequest;
+import com.team.backend.dto.EmotionRecordResponse; // [추가]
 import com.team.backend.entity.User;
 import com.team.backend.service.DiaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List; // [추가]
 import java.util.Map;
 
 @RestController
@@ -49,5 +51,32 @@ public class DiaryController {
     ) {
         diaryService.deleteDiary(user, recordId);
         return ResponseEntity.ok(Map.of("success", true));
+    }
+    // 월간 기록
+    @GetMapping("/monthly")
+    public ResponseEntity<List<EmotionRecordResponse>> getMonthlyRecords(
+            @LoginUser User user,
+            @RequestParam int year,   // URL 쿼리 파라미터 (?year=2025)
+            @RequestParam int month   // URL 쿼리 파라미터 (&month=11)
+    ) {
+        List<EmotionRecordResponse> responses = diaryService.getMonthlyRecords(user, year, month);
+        return ResponseEntity.ok(responses);
+    }
+
+    // 일간 기록
+    @GetMapping("/daily")
+    public ResponseEntity<List<EmotionRecordResponse>> getDailyRecords(
+            @LoginUser User user,
+            @RequestParam String date // ?date=2025-11-27
+    ) {
+        List<EmotionRecordResponse> responses = diaryService.getDailyRecords(user, date);
+        return ResponseEntity.ok(responses);
+    }
+
+    // 최근 기록 5개
+    @GetMapping("/recent")
+    public ResponseEntity<List<EmotionRecordResponse>> getRecentRecords(@LoginUser User user) {
+        List<EmotionRecordResponse> responses = diaryService.getRecentRecords(user);
+        return ResponseEntity.ok(responses);
     }
 }
