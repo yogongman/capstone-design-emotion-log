@@ -4,7 +4,6 @@ import com.team.backend.dto.EmotionRecordRequest;
 import com.team.backend.entity.EmotionRecord;
 import com.team.backend.entity.User;
 import com.team.backend.repository.EmotionRecordRepository;
-// UserRepository import 제거 (이제 안 씀)
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,22 +14,46 @@ public class DiaryService {
 
     private final EmotionRecordRepository emotionRecordRepository;
 
-    // UserRepository 의존성 제거됨
-
     @Transactional
-    public Long saveDiary(User user, EmotionRecordRequest request) { // 파라미터로 User 받음
-        // 1. 하드코딩 삭제됨! 컨트롤러가 넘겨준 user를 바로 사용
-
-        // 2. 엔티티 변환 및 저장
+    public Long saveDiary(User user, EmotionRecordRequest request) {
         EmotionRecord record = EmotionRecord.builder()
                 .user(user)
                 .emotionType(request.getEmotionType())
                 .level(request.getLevel())
                 .reason(request.getReason())
-                // 날짜 없으면 오늘 날짜로
                 .recordedAt(request.getRecordedAt() != null ? request.getRecordedAt() : java.time.LocalDateTime.now())
                 .build();
 
         return emotionRecordRepository.save(record).getId();
+    }
+
+    @Transactional
+    public void updateDiary(User user, Long recordId, EmotionRecordRequest request) {
+        EmotionRecord record = emotionRecordRepository.findById(recordId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 일기가 존재하지 않습니다. ID=" + recordId));
+
+        validateOwnership(record, user);
+
+        record.update(request.getEmotionType(), request.getLevel(), request.getReason());
+    }
+
+    @Transactional
+    public void deleteDiary(User user, Long recordId) {
+        // 1. 일기 찾기
+        EmotionRecord record = emotionRecordRepository.findById(recordId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 일기가 존재하지 않습니다. ID=" + recordId));
+
+        // 2. 본인 확인
+        validateOwnership(record, user);
+
+        // 3. 삭제
+        emotionRecordRepository.delete(record);
+    }
+
+    // [내부 검증 메서드]
+    private void validateOwnership(EmotionRecord record, User user) {
+        if (!record.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("작성자만 수정/삭제할 수 있습니다.");
+        }
     }
 }

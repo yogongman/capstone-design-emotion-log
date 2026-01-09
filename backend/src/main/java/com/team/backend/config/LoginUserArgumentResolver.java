@@ -27,6 +27,7 @@ public class LoginUserArgumentResolver implements HandlerMethodArgumentResolver 
     public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
                                   NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
         // ★ 개발용: DB에서 무조건 ID 1번 유저를 가져옴
+        // 나중에 jwt토큰 기반으로 유저 id 찾아오는 로직 구현해야함
         return userRepository.findById(1L)
                 .orElseThrow(() -> new RuntimeException("테스트용 유저(ID:1)가 없습니다. SQL을 실행해주세요!"));
     }
