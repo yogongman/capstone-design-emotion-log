@@ -38,10 +38,19 @@ public class EmotionRecord {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-     public void update(String emotionType, Integer level, String reason) {
+    @Column(columnDefinition = "TEXT")
+    private String embedding;
+
+    public void update(String emotionType, Integer level, String reason) {
         if (emotionType != null) this.emotionType = emotionType;
         if (level != null) this.level = level;
         if (reason != null) this.reason = reason;
         // recordedAt은 수정 불가 (정책상)
+    }
+
+    // ... update 메서드 유지
+    // 임베딩 업데이트 메서드
+    public void updateEmbedding(String embedding) {
+        this.embedding = embedding;
     }
 }
