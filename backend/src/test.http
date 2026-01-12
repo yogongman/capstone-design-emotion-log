@@ -56,7 +56,7 @@ Content-Type: {{contentType}}
 ###
 
 # 일간 기록 조회
-GET {{baseUrl}}/records/daily?date=2025-11-27
+GET {{baseUrl}}/records/daily?date=2025-11-28
 Content-Type: {{contentType}}
 
 ###

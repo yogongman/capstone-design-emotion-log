@@ -100,6 +100,7 @@ public class DiaryService {
         }
     }
 
+    // 월간 조회
     @Transactional(readOnly = true)
     public List<EmotionRecordResponse> getMonthlyRecords(User user, int year, int month) {
         YearMonth yearMonth = YearMonth.of(year, month);
@@ -113,6 +114,7 @@ public class DiaryService {
                 .collect(Collectors.toList());
     }
 
+    // 일간 조회
     @Transactional(readOnly = true)
     public List<EmotionRecordResponse> getDailyRecords(User user, String dateStr) {
         LocalDate date = LocalDate.parse(dateStr);
@@ -129,6 +131,7 @@ public class DiaryService {
                 .collect(Collectors.toList());
     }
 
+    // 최근 기록 조회
     @Transactional(readOnly = true)
     public List<EmotionRecordResponse> getRecentRecords(User user) {
         List<EmotionRecord> records = emotionRecordRepository.findTop5ByUserOrderByRecordedAtDesc(user);
