@@ -19,7 +19,7 @@ public class DiaryController {
 
     private final DiaryService diaryService;
 
-    // 1. 저장 (명세서 포맷에 맞춰 JSON 반환으로 수정)
+    // 1. 저장
     @PostMapping
     public ResponseEntity<Map<String, Object>> createDiary(@LoginUser User user, @RequestBody EmotionRecordRequest request) {
         Long diaryId = diaryService.saveDiary(user, request);
@@ -32,7 +32,7 @@ public class DiaryController {
         return ResponseEntity.ok(response);
     }
 
-    // 2. 수정 (기존과 동일, 명세서 준수)
+    // 2. 수정
     @PatchMapping("/{recordId}")
     public ResponseEntity<Map<String, Boolean>> updateDiary(
             @LoginUser User user,
@@ -43,7 +43,7 @@ public class DiaryController {
         return ResponseEntity.ok(Map.of("success", true));
     }
 
-    // 3. 삭제 (기존과 동일, 명세서 준수)
+    // 3. 삭제
     @DeleteMapping("/{recordId}")
     public ResponseEntity<Map<String, Boolean>> deleteDiary(
             @LoginUser User user,

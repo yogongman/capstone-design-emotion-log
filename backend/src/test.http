@@ -1,21 +1,18 @@
 ### 공통 변수 설정
-@baseUrl = http://localhost:8080/api/v1
+@baseUrl = http://100.97.96.61:8081/api/v1
 @contentType = application/json
 
 # ==========================================
 # 1. 기록 저장 (Create) - POST /records
 # ==========================================
-# 설명: 새로운 감정 일기를 저장합니다.
-# 예상 응답: 200 OK, {"id": 101, "message": "저장되었습니다."}
 POST {{baseUrl}}/records
 Content-Type: {{contentType}}
-# Authorization: Bearer {{token}} (현재는 개발용 Resolver가 1번 유저로 자동 처리)
 
 {
   "emotionType": "joy",
   "level": 90,
-  "reason": "테스트 일기 저장입니다. 기분이 아주 좋아요!11",
-  "recordedAt": "2025-11-27T14:00:02"
+  "reason": "테스트 일기 저장입니다. 기분이 아주 좋아요!",
+  "recordedAt": "2025-11-27T14:00:00"
 }
 
 ###
@@ -23,9 +20,8 @@ Content-Type: {{contentType}}
 # ==========================================
 # 2. 기록 수정 (Update) - PATCH /records/{recordId}
 # ==========================================
-# 설명: 저장된 일기의 내용을 수정합니다. (본인 확인 포함)
-# 주의: {recordId} 부분에 위에서 저장 후 반환받은 ID를 넣으세요. (예: 1)
-@recordIdToUpdate = 5
+# [주의] 아래 변수에 수정할 실제 Record ID를 넣으세요.
+@recordIdToUpdate = 1
 
 PATCH {{baseUrl}}/records/{{recordIdToUpdate}}
 Content-Type: {{contentType}}
@@ -41,9 +37,8 @@ Content-Type: {{contentType}}
 # ==========================================
 # 3. 기록 삭제 (Delete) - DELETE /records/{recordId}
 # ==========================================
-# 설명: 저장된 일기를 삭제합니다. (본인 확인 포함)
-# 주의: {recordId} 부분에 삭제할 ID를 넣으세요.
-@recordIdToDelete = 5
+# [주의] 아래 변수에 삭제할 실제 Record ID를 넣으세요.
+@recordIdToDelete = 1
 
 DELETE {{baseUrl}}/records/{{recordIdToDelete}}
 Content-Type: {{contentType}}
@@ -51,33 +46,134 @@ Content-Type: {{contentType}}
 ###
 
 # ==========================================
-# 4. 삭제 확인용 조회 (Optional)
+# 4. 조회 (월간/일간/최근)
 # ==========================================
-# 설명: 삭제 후 수정을 시도했을 때 500 에러가 나야 정상입니다.
-PATCH {{baseUrl}}/records/{{recordIdToDelete}}
-Content-Type: {{contentType}}
-
-{
-  "emotionType": "joy",
-  "level": 100,
-  "reason": "삭제된 글 수정 시도"
-}
-
-###
 
 # 월간 기록 조회
 GET {{baseUrl}}/records/monthly?year=2025&month=11
 Content-Type: {{contentType}}
 
-
 ###
 
-#일간 기록 조회
+# 일간 기록 조회
 GET {{baseUrl}}/records/daily?date=2025-11-27
 Content-Type: {{contentType}}
 
 ###
 
-#최근 기록 조회
+# 최근 기록 조회
 GET {{baseUrl}}/records/recent
 Content-Type: {{contentType}}
+
+
+### =================================================================
+### [Step 1] AI 학습 데이터 빌드업 (과거 데이터 쌓기)
+### =================================================================
+
+### 5-1. [과거 일기 A] 작성 (상황: 시험 망침)
+# 응답에서 "id" 값을 확인하세요. (예: 10)
+POST {{baseUrl}}/records
+Content-Type: {{contentType}}
+
+{
+  "emotionType": "depressed",
+  "level": 80,
+  "reason": "열심히 준비한 시험인데 너무 긴장해서 다 망쳤어. 나는 왜 이럴까.",
+  "recordedAt": "2025-11-01T10:00:00"
+}
+
+### 5-2. [과거 일기 A] 솔루션 생성 요청
+# [주의] 위에서 받은 ID를 아래 URL에 넣으세요.
+@recordId_A = 8
+
+POST {{baseUrl}}/solutions/generate
+Content-Type: {{contentType}}
+
+{
+  "recordId": {{recordId_A}}
+}
+
+### 5-3. [과거 일기 A] 평가 - "아주 좋음(5점)"
+# [주의] 위 솔루션 생성 응답에서 받은 solutionId를 URL에 넣으세요.
+@solutionId_A = 1
+
+POST {{baseUrl}}/solutions/{{solutionId_A}}/feedback
+Content-Type: {{contentType}}
+
+{
+  "score": 5
+}
+
+
+### 6-1. [과거 일기 B] 작성 (상황: 면접 망침)
+# 응답에서 "id" 값을 확인하세요. (예: 11)
+POST {{baseUrl}}/records
+Content-Type: {{contentType}}
+
+{
+  "emotionType": "depressed",
+  "level": 90,
+  "reason": "면접관 앞에서 말 한마디도 제대로 못 했어. 너무 한심해.",
+  "recordedAt": "2025-11-05T14:00:00"
+}
+
+### 6-2. [과거 일기 B] 솔루션 생성 요청
+# [주의] 위에서 받은 ID를 아래 변수에 넣으세요.
+@recordId_B = 3
+
+POST {{baseUrl}}/solutions/generate
+Content-Type: {{contentType}}
+
+{
+  "recordId": {{recordId_B}}
+}
+
+### 6-3. [과거 일기 B] 평가 - "아주 싫음(1점)"
+# [주의] 위 솔루션 생성 응답에서 받은 solutionId를 URL에 넣으세요.
+@solutionId_B = 2
+
+POST {{baseUrl}}/solutions/{{solutionId_B}}/feedback
+Content-Type: {{contentType}}
+
+{
+  "score": 1
+}
+
+
+### =================================================================
+### [Step 2] RAG 성능 테스트 (학습 결과 확인)
+### =================================================================
+
+### 7-1. [현재 일기] 작성 (비슷한 상황: 발표 망침)
+# 기대: AI가 A(시험)의 조언 스타일은 따라하고, B(면접) 스타일은 피해야 함.
+POST {{baseUrl}}/records
+Content-Type: {{contentType}}
+
+{
+  "emotionType": "depressed",
+  "level": 85,
+  "reason": "프로젝트 발표를 망쳤어. 팀원들한테 너무 미안하고 쥐구멍에 숨고 싶다.",
+  "recordedAt": "2025-11-28T18:00:00"
+}
+
+### 7-2. [현재 일기] 솔루션 요청 (검증 단계)
+# [주의] 위에서 생성된 현재 일기의 ID를 넣으세요.
+@recordId_Current = 4
+
+POST {{baseUrl}}/solutions/generate
+Content-Type: {{contentType}}
+
+{
+  "recordId": {{recordId_Current}}
+}
+
+### 7-3. [현재 일기] 결과 평가
+# 응답받은 솔루션 ID를 넣으세요.
+@solutionId_Current = 3
+
+POST {{baseUrl}}/solutions/{{solutionId_Current}}/feedback
+Content-Type: {{contentType}}
+
+{
+  "score": 5
+}

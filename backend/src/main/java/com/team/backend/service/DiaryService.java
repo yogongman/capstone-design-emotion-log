@@ -25,6 +25,7 @@ public class DiaryService {
     private final EmotionRecordRepository emotionRecordRepository;
     private final SolutionRepository solutionRepository; // [추가]
 
+    // 기록 저장
     @Transactional
     public Long saveDiary(User user, EmotionRecordRequest request) {
         EmotionRecord record = EmotionRecord.builder()
@@ -38,6 +39,7 @@ public class DiaryService {
         return emotionRecordRepository.save(record).getId();
     }
 
+    // 기록 수정
     @Transactional
     public void updateDiary(User user, Long recordId, EmotionRecordRequest request) {
         EmotionRecord record = emotionRecordRepository.findById(recordId)
@@ -48,6 +50,7 @@ public class DiaryService {
         record.update(request.getEmotionType(), request.getLevel(), request.getReason());
     }
 
+    // 기록 삭제
     @Transactional
     public void deleteDiary(User user, Long recordId) {
         // 1. 일기 찾기
@@ -69,7 +72,7 @@ public class DiaryService {
     }
 
     // 월간 기록
-    @Transactional(readOnly = true) // 조회만 하니까 readOnly (성능 이득)
+    @Transactional(readOnly = true)
     public List<EmotionRecordResponse> getMonthlyRecords(User user, int year, int month) {
 
         // 1. 날짜 범위 계산 (예: 2025-11 -> 2025-11-01 00:00 ~ 2025-11-30 23:59:59)

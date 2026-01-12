@@ -37,4 +37,9 @@ public class Solution {
     @UpdateTimestamp // 수정될 때마다 시간 갱신
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    // 점수 업데이트 편의 메서드
+    public void updateScore(Integer score) {
+        this.evalScore = score;
+    }
 }
