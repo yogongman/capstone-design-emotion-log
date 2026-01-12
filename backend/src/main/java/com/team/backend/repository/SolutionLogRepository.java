@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface SolutionLogRepository extends JpaRepository<SolutionLog, Long> {
-    // 특정 일기에 달린 모든 솔루션 로그 가져오기
     List<SolutionLog> findAllByEmotionRecord(EmotionRecord emotionRecord);
+
+    // [추가] 특정 일기에 연결된 모든 로그 삭제
+    void deleteAllByEmotionRecord(EmotionRecord emotionRecord);
 }

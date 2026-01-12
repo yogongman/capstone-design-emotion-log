@@ -42,4 +42,9 @@ public class Solution {
     public void updateScore(Integer score) {
         this.evalScore = score;
     }
+    // 재생성 시 내용 교체 및 점수 초기화 메서드
+    public void updateContent(String newContent) {
+        this.content = newContent;
+        this.evalScore = 0; // 내용이 바뀌었으니 평점도 초기화
+    }
 }

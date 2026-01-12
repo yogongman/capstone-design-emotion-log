@@ -20,7 +20,7 @@ public class SolutionController {
 
     // 5.1 솔루션 생성
     @PostMapping("/generate")
-    public ResponseEntity<SolutionResponse> generateSoblution(
+    public ResponseEntity<SolutionResponse> generateSolution(
             @LoginUser User user,
             @RequestBody SolutionRequest request
     ) {

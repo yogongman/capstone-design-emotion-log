@@ -23,7 +23,7 @@ public class GeminiService {
     @Value("${gemini.api-key}")
     private String apiKey;
 
-    private static final String MODEL_EMBEDDING = "text-embedding-001";
+    private static final String MODEL_EMBEDDING = "gemini-embedding-001";
     private static final String MODEL_CHAT = "gemini-2.5-flash"; // 또는 "gemini-2.5-flash"
 
     private static final String BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/";

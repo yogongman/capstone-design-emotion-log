@@ -49,22 +49,34 @@ public class SolutionService {
         // 4. [RAG 핵심] 유사도 기반 과거 기록 Top 10 찾기
         List<EmotionRecord> similarRecords = findTop10SimilarRecords(user, currentRecord, currentEmbedding);
 
-        // 5. [프롬프트 구성] 과거 로그(점수 포함) + 현재 상황 -> 한국어 프롬프트 생성
+        // 5. [프롬프트 구성] 가이드라인 + 과거 로그 + 현재 상황
         String finalPrompt = buildPromptWithFullHistory(currentRecord, similarRecords);
 
         // 6. Gemini 호출 (솔루션 생성)
         String aiReply = geminiService.generateSolution(finalPrompt);
 
-        // 7. 결과 저장
-        // 7-1. 화면 표시용 Solution 저장
-        Solution solution = Solution.builder()
-                .emotionRecord(currentRecord)
-                .content(aiReply)
-                .evalScore(0) // 초기값 0점
-                .build();
-        solutionRepository.save(solution);
+        // 7. 결과 저장 (로직 변경)
+
+        // 7-1. 화면 표시용 Solution 저장 (Upsert: 있으면 수정, 없으면 생성)
+        Solution solution = solutionRepository.findByEmotionRecord(currentRecord)
+                .orElse(null);
+
+        if (solution != null) {
+            // 이미 존재하면 -> 내용만 갈아끼우기 (Update)
+            solution.updateContent(aiReply);
+            // JPA의 Dirty Checking(변경 감지)에 의해 트랜잭션 종료 시 자동 update 쿼리 나감
+        } else {
+            // 없으면 -> 새로 만들기 (Insert)
+            solution = Solution.builder()
+                    .emotionRecord(currentRecord)
+                    .content(aiReply)
+                    .evalScore(0)
+                    .build();
+            solutionRepository.save(solution);
+        }
 
         // 7-2. 학습 데이터용 SolutionLog 저장
+        // 로그는 "히스토리" 개념이므로, 재생성할 때마다 계속 쌓는 게 맞습니다. (나중에 "이런 답변은 싫어했다"는 데이터로 활용 가능)
         SolutionLog log = SolutionLog.builder()
                 .emotionRecord(currentRecord)
                 .content(aiReply)
@@ -90,11 +102,7 @@ public class SolutionService {
             throw new RuntimeException("본인의 솔루션만 평가할 수 있습니다.");
         }
 
-        // 점수 업데이트 (Entity에 updateScore 메서드 필요)
         solution.updateScore(score);
-
-        // (선택사항) SolutionLog도 같이 찾아서 업데이트해주면 더 좋음
-        // 여기서는 편의상 생략하지만, 실제 서비스면 Log도 동기화해야 함.
     }
 
     // ==========================================
@@ -105,21 +113,18 @@ public class SolutionService {
      * In-Memory 코사인 유사도 계산 -> Top 10 추출
      */
     private List<EmotionRecord> findTop10SimilarRecords(User user, EmotionRecord current, String currentVector) {
-        // 1. 임베딩이 있는 내 과거 일기 다 가져오기 (본인 글 제외)
         List<EmotionRecord> candidates = emotionRecordRepository.findAllByUserAndEmbeddingIsNotNullAndIdNot(user, current.getId());
 
         if (candidates.isEmpty()) {
             return Collections.emptyList();
         }
 
-        // 2. 점수 매기기
         Map<EmotionRecord, Double> scoreMap = new HashMap<>();
         for (EmotionRecord target : candidates) {
             double score = geminiService.calculateCosineSimilarity(currentVector, target.getEmbedding());
             scoreMap.put(target, score);
         }
 
-        // 3. 점수 높은 순 정렬 & 상위 10개 자르기
         return scoreMap.entrySet().stream()
                 .sorted(Map.Entry.<EmotionRecord, Double>comparingByValue().reversed())
                 .limit(10)
@@ -128,30 +133,36 @@ public class SolutionService {
     }
 
     /**
-     * 프롬프트 조립 (한국어, 모든 로그 포함)
+     * 프롬프트 조립 (핵심: 행동 제안 가이드라인 추가)
      */
     private String buildPromptWithFullHistory(EmotionRecord current, List<EmotionRecord> similarRecords) {
         StringBuilder prompt = new StringBuilder();
 
-        // 1. 페르소나 및 역할 부여
+        // 1. 페르소나 및 기본 역할
         prompt.append("[시스템 지시사항]\n");
-        prompt.append("당신은 따뜻하고 공감 능력이 뛰어난 심리 상담가입니다.\n");
-        prompt.append("사용자의 일기 내용을 읽고, 따뜻한 위로와 실질적인 조언이 담긴 \"한 문장의 솔루션\"을 한국어로 작성해주세요.\n\n");
+        prompt.append("당신은 따뜻한 공감 능력과 문제 해결 능력을 겸비한 '라이프 코치'입니다.\n");
+        prompt.append("사용자의 일기를 읽고, 공감과 함께 **'지금 당장 실천할 수 있는 구체적인 행동(Action Item)'**을 포함하여 답변해주세요.\n\n");
 
-        // 2. 과거 데이터 주입 (유사도 Top 10의 모든 로그)
+        // 2. [New] 행동 제안 가이드라인 (맥락에 맞게 변형 유도)
+        prompt.append("[행동 제안 가이드라인 (참고용)]\n");
+        prompt.append("사용자의 감정 상태에 따라 아래와 같은 '해결 방향'을 참고하되, **반드시 일기 속 구체적인 상황(장소, 시간, 사건)에 맞춰 자연스럽게 변형**하여 제안하세요.\n");
+        prompt.append("- 기쁨(joy)/평온(calm): 이 순간을 사진, 메모, 음악 등으로 '기록'하거나 '저장'하도록 유도.\n");
+        prompt.append("- 슬픔(sadness): 거창한 해결보다는 따뜻한 차, 산책, 환기 등 기분을 전환할 수 있는 '작은 셀프 케어' 제안.\n");
+        prompt.append("- 화남(anger): 화를 억누르지 말고, 안전하게 에너지를 배출하거나 잠시 자리를 피해서 '열을 식히는 행동' 제안.\n");
+        prompt.append("- 긴장(anxiety): 복잡한 생각 끊기. 심호흡, 주변 사물 관찰하기 등 지금 이 순간 감각에 집중하는 '그라운딩(Grounding)' 제안.\n\n");
+
+        prompt.append("[주의사항]\n");
+        prompt.append("1. 앵무새처럼 위 예시를 그대로 읊지 마세요. (예: 회사에 있는 사람에게 '이불 속에 들어가라'고 하지 말 것)\n");
+        prompt.append("2. 답변은 **두 문장 이내**로 짧고 간결하게 작성하세요.\n\n");
+
+        // 3. 과거 데이터 주입 (RAG)
         prompt.append("[참고: 이 사용자의 과거 상담 이력 (유사한 상황)]\n");
-        prompt.append("아래는 사용자가 과거에 비슷한 상황에서 받았던 조언과 그에 대한 평가 점수(1~5점)입니다.\n");
-        prompt.append("높은 점수(4~5점)를 받은 조언 스타일은 적극 참고하고, 낮은 점수(1~2점)를 받은 조언 스타일은 피해주세요.\n\n");
+        prompt.append("높은 점수(4~5점)를 받은 조언 스타일은 적극 참고하고, 낮은 점수(1~2점)를 받은 조언 스타일은 피해주세요.\n");
 
         boolean hasHistory = false;
-
         for (EmotionRecord record : similarRecords) {
-            // 해당 기록에 달린 솔루션 로그 조회
             List<SolutionLog> logs = solutionLogRepository.findAllByEmotionRecord(record);
-
             for (SolutionLog logData : logs) {
-                // 평가가 없는(0점) 로그는 굳이 학습 데이터로 안 써도 됨 (선택사항)
-                // 여기서는 평가된 것만 넣겠습니다.
                 if (logData.getEvalScore() > 0) {
                     prompt.append("- 조언: \"").append(logData.getContent()).append("\"\n");
                     prompt.append("  (평가: ").append(logData.getEvalScore()).append("점)\n");
@@ -161,19 +172,19 @@ public class SolutionService {
         }
 
         if (!hasHistory) {
-            prompt.append("(과거 이력 없음 - 보편적으로 좋은 상담을 해주세요.)\n");
+            prompt.append("(과거 이력 없음 - 가이드라인에 맞춰 최적의 답변을 해주세요.)\n");
         }
         prompt.append("\n");
 
-        // 3. 현재 상황 입력
+        // 4. 현재 상황 입력
         prompt.append("[현재 사용자의 상황]\n");
         prompt.append("- 감정: ").append(current.getEmotionType()).append("\n");
         prompt.append("- 감정 강도(0~100): ").append(current.getLevel()).append("\n");
         prompt.append("- 일기 내용: \"").append(current.getReason()).append("\"\n\n");
 
-        // 4. 답변 요청
+        // 5. 답변 요청
         prompt.append("[답변 작성]\n");
-        prompt.append("위 내용을 바탕으로 사용자에게 가장 적절한 위로를 건네주세요.\n");
+        prompt.append("위 내용을 바탕으로 사용자에게 가장 필요한 위로와 행동 지침을 건네주세요.\n");
         prompt.append("답변:");
 
         return prompt.toString();
