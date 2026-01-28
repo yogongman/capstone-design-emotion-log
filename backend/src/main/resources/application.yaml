@@ -29,3 +29,14 @@ server:
 
 gemini:
   api-key: ${GEMINI_API_KEY}
+
+# JWT 설정
+jwt:
+  secret: ${JWT_SECRET:your-secret-key-at-least-256bits-long-for-development-only}
+  access-token-expiration: 900000      # 15분 (밀리초)
+  refresh-token-expiration: 604800000  # 7일 (밀리초)
+
+# Google OAuth 설정
+google:
+  oauth:
+    client-id: ${GOOGLE_CLIENT_ID:your-google-client-id.apps.googleusercontent.com}
