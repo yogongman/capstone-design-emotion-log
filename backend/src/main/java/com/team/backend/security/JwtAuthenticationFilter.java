@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -25,6 +26,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
 
+    @Value("${auth.mode:development}")
+    private String authMode;
+
     // 인증이 필요 없는 경로 (공개 API)
     private static final String[] PUBLIC_PATHS = {
             "/api/v1/auth/login/google",
@@ -40,6 +44,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String requestPath = request.getRequestURI();
         String method = request.getMethod();
+
+        // 개발 모드: 모든 요청에서 토큰 검증 스킵
+        if ("development".equals(authMode)) {
+            log.debug("Development mode: skipping JWT authentication");
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         // 공개 경로는 토큰 검증 스킵
         if (isPublicPath(requestPath)) {

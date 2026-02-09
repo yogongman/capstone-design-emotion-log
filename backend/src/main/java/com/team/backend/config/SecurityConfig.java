@@ -2,6 +2,7 @@ package com.team.backend.config;
 
 import com.team.backend.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -31,6 +32,9 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    @Value("${auth.mode:development}")
+    private String authMode;
+
     /**
      * Spring Security FilterChain 설정
      * - CSRF 비활성화 (REST API는 상태 비저장)
@@ -50,15 +54,20 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 // 인증 정책 설정
-                .authorizeHttpRequests(auth -> auth
-                        // 공개 경로
-                        .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/health").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
+                .authorizeHttpRequests(auth -> {
+                    // 공개 경로
+                    auth.requestMatchers("/api/v1/auth/**").permitAll()
+                            .requestMatchers("/health").permitAll()
+                            .requestMatchers("/actuator/**").permitAll();
 
-                        // 나머지는 인증 필요
-                        .anyRequest().authenticated()
-                )
+                    // 개발 모드: 모든 요청 허용
+                    if ("development".equals(authMode)) {
+                        auth.anyRequest().permitAll();
+                    } else {
+                        // 프로덕션 모드: 나머지는 인증 필요
+                        auth.anyRequest().authenticated();
+                    }
+                })
 
                 // JWT 필터 등록 (UsernamePasswordAuthenticationFilter 전에)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

@@ -2,6 +2,9 @@ spring:
   application:
     name: emotion-log-backend
 
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}  # 기본값: dev (개발 모드)
+
   datasource:
     # 1. ${변수명} : 환경변수가 있으면 그걸 씀 (젠킨스 서버 & 로컬 설정)
     # 2. :뒤의값 : 환경변수가 없으면 이 값을 씀 (여기서는 비워두거나 localhost로 안전하게 처리)
@@ -29,6 +32,11 @@ server:
 
 gemini:
   api-key: ${GEMINI_API_KEY}
+
+# 인증 설정
+auth:
+  mode: ${AUTH_MODE:development}  # development (테스트용 User ID 1) / production (JWT 기반)
+  test-user-id: ${AUTH_TEST_USER_ID:1}  # 개발 모드에서 사용할 테스트 유저 ID
 
 # JWT 설정
 jwt:

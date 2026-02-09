@@ -1,0 +1,21 @@
+# 개발 환경 설정 (Spring Profile: dev)
+# 테스트용 User ID 1 기반 인증 사용
+
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:postgresql://localhost:5434/team_db
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+auth:
+  mode: development
+  test-user-id: 1
+
+logging:
+  level:
+    com.team.backend: DEBUG
+    root: INFO
