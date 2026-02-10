@@ -1,15 +1,11 @@
 # 개발 환경 설정 (Spring Profile: dev)
 # 테스트용 User ID 1 기반 인증 사용
+# application.yaml의 환경변수 설정을 상속받음
 
 spring:
   config:
     activate:
       on-profile: dev
-  datasource:
-    url: jdbc:postgresql://localhost:5434/team_db
-    username: postgres
-    password: postgres
-    driver-class-name: org.postgresql.Driver
 
 auth:
   mode: development
