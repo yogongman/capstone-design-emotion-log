@@ -1,0 +1,15 @@
+# 프로덕션 환경 설정 (Spring Profile: prod)
+# JWT 토큰 기반 실제 사용자 인증 사용
+
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+auth:
+  mode: production
+
+logging:
+  level:
+    com.team.backend: WARN
+    root: WARN

@@ -1,13 +1,18 @@
+# application.yaml
+
+server:
+  port: 8080
+
 spring:
   application:
     name: emotion-log-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev} # 기본값 dev
 
   datasource:
-    # 1. ${변수명} : 환경변수가 있으면 그걸 씀 (젠킨스 서버 & 로컬 설정)
-    # 2. :뒤의값 : 환경변수가 없으면 이 값을 씀 (여기서는 비워두거나 localhost로 안전하게 처리)
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${DB_URL}           # 젠킨스에서 주입
+    username: ${DB_USERNAME} # 젠킨스에서 주입
+    password: ${DB_PASSWORD} # 젠킨스에서 주입
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -18,14 +23,22 @@ spring:
         format_sql: true
         show_sql: true
 
-  servlet:
-    encoding:
-      charset: UTF-8
-      enabled: true
-      force: true
-
-server:
-  port: 8080
-
 gemini:
-  api-key: ${GEMINI_API_KEY}
+  api-key: ${GEMINI_API_KEY} # 젠킨스에서 주입
+
+# 인증 설정 (수정됨)
+auth:
+  mode: ${AUTH_MODE:development} # 환경변수 없으면 dev 모드
+  test-user-id: ${AUTH_TEST_USER_ID:1}
+
+# JWT 설정
+jwt:
+  # 기본값은 개발용이므로, 배포 시엔 반드시 환경변수 주입 필요
+  secret: ${JWT_SECRET:your-secret-key-at-least-256bits-long-for-development-only}
+  access-token-expiration: 900000
+  refresh-token-expiration: 604800000
+
+# Google OAuth 설정 (수정됨)
+google:
+  oauth:
+    client-id: ${GOOGLE_CLIENT_ID} # 젠킨스에서 주입하도록 변경!
