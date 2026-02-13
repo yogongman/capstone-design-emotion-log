@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Builder
 public class EmotionRecordResponse {
     private Long id;
-    private String emotionId;
+    private String emotionType; // [수정 후] 이름을 emotionType으로 변경
     private Integer level;
     private LocalDateTime timestamp;
     private String reason;
@@ -35,7 +35,7 @@ public class EmotionRecordResponse {
 
         return EmotionRecordResponse.builder()
                 .id(record.getId())
-                .emotionId(record.getEmotionType())
+                .emotionType(record.getEmotionType())
                 .level(record.getLevel())
                 .timestamp(record.getRecordedAt())
                 .reason(record.getReason())
