@@ -126,4 +126,39 @@ public class JwtUtil {
             return null;
         }
     }
+
+    /**
+     * [추가] 회원가입용 임시 토큰 생성 (email, socialId 포함)
+     * 유효기간: 10분 (가입 정보를 입력하기에 충분한 시간)
+     */
+    public String generateSignupToken(String email, String socialId) {
+        SecretKey key = Keys.hmacShaKeyFor(secretKey.getBytes());
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + (10 * 60 * 1000)); // 10분
+
+        return Jwts.builder()
+                .setSubject("signup-guest")
+                .claim("userId", -1L)       // 아직 회원이 아님
+                .claim("email", email)      // ★ 토큰에 이메일 저장
+                .claim("socialId", socialId)// ★ 토큰에 소셜ID 저장
+                .claim("tokenType", "signup")
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    /**
+     * [추가] 토큰에서 이메일 추출
+     */
+    public String extractEmail(String token) {
+        return getClaims(token).get("email", String.class);
+    }
+
+    /**
+     * [추가] 토큰에서 SocialId 추출
+     */
+    public String extractSocialId(String token) {
+        return getClaims(token).get("socialId", String.class);
+    }
 }

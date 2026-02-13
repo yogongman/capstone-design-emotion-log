@@ -1,5 +1,7 @@
 package com.team.backend.controller;
 
+import com.team.backend.exception.UnauthorizedException;
+import com.team.backend.security.JwtUtil;
 import com.team.backend.annotation.LoginUser;
 import com.team.backend.dto.GoogleLoginRequest;
 import com.team.backend.dto.GoogleLoginResponse;
@@ -25,7 +27,7 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
-
+    private final JwtUtil jwtUtil;
     /**
      * 2.1. Google 소셜 로그인
      * POST /api/v1/auth/login/google
@@ -50,7 +52,7 @@ public class AuthController {
      */
     @PostMapping("/signup")
     public ResponseEntity<Map<String, Object>> signup(
-            @LoginUser User user,
+            @RequestHeader("Authorization") String bearerToken,
             @RequestBody SignupRequest request
     ) {
         // LoginUser에서 추출된 user 객체를 이용하여 Google 로그인 정보 재구성
@@ -58,10 +60,23 @@ public class AuthController {
 
         // 실제로는 임시 토큰의 클레임에서 email, socialId를 가져야 함
         // 현재는 임시로 처리하고, STEP 4에서 필터에서 처리
+
+        // 1. 토큰 껍질 벗기기
+        String token = bearerToken.substring(7);
+
+        // 2. 토큰 검증
+        if (!jwtUtil.validateToken(token)) {
+            throw new UnauthorizedException("유효하지 않은 토큰입니다.");
+        }
+
+        // 3. 토큰 안에 숨겨둔 이메일/소셜ID 꺼내기
+        String email = jwtUtil.extractEmail(token);
+        String socialId = jwtUtil.extractSocialId(token);
+        Long tempUserId = jwtUtil.extractUserIdFromToken(token); // -1
         GoogleLoginResponse signupResponse = authService.signup(
-                user.getId(),
-                "temp@example.com", // 임시 (실제로는 JWT 클레임에서 가져옴)
-                "temp-social-id",   // 임시 (실제로는 JWT 클레임에서 가져옴)
+                tempUserId,
+                email,      // 토큰에서 나온 진짜 이메일
+                socialId,   // 토큰에서 나온 진짜 소셜ID
                 request.getNickname(),
                 request.getAge(),
                 request.getGender()

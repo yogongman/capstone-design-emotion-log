@@ -177,3 +177,62 @@ Content-Type: {{contentType}}
 {
   "score": 5
 }
+
+### 1. 구글 로그인 시도 (신규 유저 토큰 발급 요청)
+# 백엔드가 "Base64 디코딩"을 수행하므로, 형식을 갖춘 가짜 토큰을 보냅니다.
+# Payload: {"email": "http_test_user@gmail.com", "sub": "99999"}
+POST {{host}}/api/v1/auth/login/google
+Content-Type: {{contentType}}
+
+{
+  "token": "header.eyJlbWFpbCI6ICJodHRwX3Rlc3RfdXNlckBdtYWlsLmNvbSIsICJzdWIiOiAiOTk5OTkifQ==.signature"
+}
+
+> {%
+    // 응답에서 임시 accessToken을 꺼내서 'signupToken' 변수에 저장
+    client.global.set("signupToken", response.body.accessToken);
+    client.log("Signup Token: " + response.body.accessToken);
+
+    // 신규 유저인지 확인
+    client.test("Is New User", function() {
+        client.assert(response.body.isNewUser === true, "신규 유저여야 합니다.");
+    });
+%}
+
+
+### 2. 회원가입 진행 (위에서 받은 임시 토큰 사용)
+# 헤더에 signupToken을 넣고, Body에는 닉네임/나이/성별만 보냅니다.
+POST {{host}}/api/v1/auth/signup
+Content-Type: {{contentType}}
+Authorization: Bearer {{signupToken}}
+
+{
+  "nickname": "HTTP클라이언트",
+  "age": 20,
+  "gender": "male"
+}
+
+> {%
+    // 응답에서 정식 accessToken을 꺼내서 'realToken' 변수에 저장
+    client.global.set("realToken", response.body.accessToken);
+    client.log("Real Token: " + response.body.accessToken);
+
+    // 성공 여부 확인
+    client.test("Signup Success", function() {
+        client.assert(response.status === 200, "가입이 성공해야 합니다.");
+    });
+%}
+
+
+### 3. 내 정보 조회 (검증)
+# 정식 토큰으로 요청했을 때, 아까 그 이메일(http_test_user@gmail.com)이 나와야 성공!
+GET {{host}}/api/v1/users/me
+Authorization: Bearer {{realToken}}
+
+> {%
+    client.test("Email Verification", function() {
+        var email = response.body.email;
+        client.log("User Email: " + email);
+        client.assert(email === "http_test_user@gmail.com", "토큰에 숨겨둔 이메일과 일치해야 합니다.");
+    });
+%}

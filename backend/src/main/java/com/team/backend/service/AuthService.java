@@ -1,5 +1,11 @@
 package com.team.backend.service;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken.Payload;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+
 import com.team.backend.dto.GoogleLoginResponse;
 import com.team.backend.entity.User;
 import com.team.backend.exception.UnauthorizedException;
@@ -11,8 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.reactive.function.client.WebClient;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 
@@ -30,56 +36,39 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
-    private final WebClient.Builder webClientBuilder;
 
     @Value("${google.oauth.client-id}")
     private String googleClientId;
 
-    /**
-     * Google 로그인 또는 신규 회원가입 처리
-     * 1. Google ID Token 검증
-     * 2. 사용자 존재 여부 확인
-     * 3. 토큰 발급 (기존 사용자는 실제 토큰, 신규는 임시 토큰)
-     */
     @Transactional
     public GoogleLoginResponse loginOrRegister(String googleIdToken) {
-        // 1. Google ID Token 검증
-        Map<String, Object> tokenData = verifyGoogleIdToken(googleIdToken);
-        String email = (String) tokenData.get("email");
-        String socialId = (String) tokenData.get("sub");
+        // 1. 구글 라이브러리로 토큰 검증 및 정보 추출
+        Payload payload = verifyGoogleIdToken(googleIdToken);
 
-        log.info("Google login attempt - Email: {}, SocialId: {}", email, socialId);
+        String email = payload.getEmail();
+        String socialId = payload.getSubject(); // 구글의 유니크 ID (sub)
 
-        // 2. 사용자 존재 여부 확인
+        // 2. 가입 여부 확인 (이하 로직은 기존과 동일)
         Optional<User> existingUser = userRepository.findByEmail(email);
 
-        // 3. 토큰 발급
         if (existingUser.isPresent()) {
-            // 기존 사용자: 실제 AccessToken + RefreshToken 발급
             User user = existingUser.get();
             String accessToken = jwtUtil.generateAccessToken(user.getId());
             String refreshToken = jwtUtil.generateRefreshToken(user.getId());
-
-            // Refresh Token DB에 저장
             user.updateRefreshToken(refreshToken);
-            userRepository.save(user);
 
-            log.info("Existing user login - UserId: {}", user.getId());
             return GoogleLoginResponse.builder()
                     .accessToken(accessToken)
                     .refreshToken(refreshToken)
                     .isNewUser(false)
                     .build();
         } else {
-            // 신규 사용자: 임시 AccessToken 발급 (회원가입용)
-            String tempAccessToken = jwtUtil.generateAccessToken(-1L); // -1 = 임시 토큰 표시
+            // 신규 회원: 토큰에 정보 담아서 임시 발급
+            String signupToken = jwtUtil.generateSignupToken(email, socialId);
 
-            log.info("New user signup attempt - Email: {}", email);
             return GoogleLoginResponse.builder()
-                    .accessToken(tempAccessToken)
+                    .accessToken(signupToken)
                     .isNewUser(true)
-                    .email(email)
-                    .socialId(socialId)
                     .build();
         }
     }
@@ -171,44 +160,27 @@ public class AuthService {
      * 실제 프로덕션에서는 Google 라이브러리를 사용하는 것이 더 보안적입니다.
      * 개발 단계에서는 token의 기본 구조를 확인하고 진행합니다.
      */
-    private Map<String, Object> verifyGoogleIdToken(String googleIdToken) {
+    private Payload verifyGoogleIdToken(String tokenString) {
         try {
-            // 실제 프로덕션에서는 Google OAuth2 라이브러리나 REST API로 검증
-            // 개발 단계에서는 기본 검증 로직 적용
+            // 1. 검증기(Verifier) 생성
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
+                    .setAudience(Collections.singletonList(googleClientId)) // 내 Client ID가 맞는지 확인
+                    .build();
 
-            if (googleIdToken == null || googleIdToken.isEmpty()) {
-                throw new UnauthorizedException("Google 인증 토큰이 비어있습니다.");
+            // 2. 검증 수행
+            GoogleIdToken idToken = verifier.verify(tokenString);
+
+            if (idToken != null) {
+                // 검증 성공 시 Payload 반환
+                return idToken.getPayload();
+            } else {
+                log.warn("Invalid ID token.");
+                throw new UnauthorizedException("유효하지 않은 구글 토큰입니다.");
             }
 
-            // JWT 토큰 기본 형식 확인 (3개 부분으로 구성)
-            String[] parts = googleIdToken.split("\\.");
-            if (parts.length != 3) {
-                throw new UnauthorizedException("유효하지 않은 토큰 형식입니다.");
-            }
-
-            // 실제 환경에서는 다음과 같이 Google API 호출:
-            // Map<String, Object> response = webClientBuilder.build()
-            //     .get()
-            //     .uri("https://oauth2.googleapis.com/tokeninfo?id_token=" + googleIdToken)
-            //     .retrieve()
-            //     .bodyToMono(Map.class)
-            //     .block();
-
-            // 개발 단계에서는 mock 데이터로 진행 (실제 Google 계정으로 로그인할 때 동작)
-            log.info("Google ID Token basic validation passed");
-
-            // 실제 프로덕션 환경에서는 위의 REST API 호출 결과를 반환
-            // 개발 단계에서는 토큰에서 추출 가능한 기본 정보 반환
-            return Map.of(
-                    "sub", "mock-google-id-" + System.currentTimeMillis(),
-                    "email", "user@example.com"
-            );
-
-        } catch (UnauthorizedException e) {
-            throw e;
         } catch (Exception e) {
-            log.error("Google ID Token verification failed: {}", e.getMessage());
-            throw new UnauthorizedException("Google 인증 토큰 검증에 실패했습니다.");
+            log.error("Google ID Token verification failed", e);
+            throw new UnauthorizedException("구글 토큰 검증 실패: " + e.getMessage());
         }
     }
 }
