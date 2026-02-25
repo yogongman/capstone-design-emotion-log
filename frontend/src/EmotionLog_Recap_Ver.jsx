@@ -1,11 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import html2canvas from 'html2canvas';
 import { 
   Smile, Frown, Meh, Angry, Zap, 
   Calendar as CalendarIcon, BarChart2, Share2, ChevronLeft, ChevronRight,
   CheckCircle, LogOut, Loader2, Send, Home, User, Edit2, X, Star, Clock, AlertCircle,
   TrendingUp, Activity, Download, Quote, Trash2
 } from 'lucide-react';
-
+import joyImg from './assets/joy.png';
+import calmImg from './assets/calm.png';
+import sadnessImg from './assets/sadness.png';
+import angerImg from './assets/anger.png';
+import anxietyImg from './assets/anxiety.png';
+import campusBg from './assets/campus-bg.png';
 /**
  * [업데이트 내역]
  * 1. 로그인: 카카오 제거, 구글 단독 지원
@@ -18,14 +24,44 @@ import {
  * 8. 솔루션 & 피드백: 상세 모달 내 인라인 솔루션 표시 및 별점 평가 기능 추가
  * 9. 상세 기록 UX 개선 (New): 저장 버튼과 AI 요청 버튼 분리, 솔루션 영역 고정 UI 적용
  */
+// --- API Configuration ---
+const API_BASE = 'http://100.109.95.52:8081/api/v1';
+const GOOGLE_CLIENT_ID = '977745517550-qck18t5ns3ujsl1kbc3r8afa31t9og5s.apps.googleusercontent.com';
 
+const getToken = () => localStorage.getItem('accessToken');
+const setTokens = (access, refresh) => {
+  localStorage.setItem('accessToken', access);
+  if (refresh) localStorage.setItem('refreshToken', refresh);
+};
+const clearTokens = () => {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+};
+
+const api = async (path, options = {}) => {
+  const token = getToken();
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `API Error ${res.status}`);
+  }
+  return res.json();
+};
 // --- Constants & Types ---
 const EMOTIONS = [
-  { id: 'joy', label: '기쁨', icon: Smile, color: 'bg-yellow-400', text: 'text-yellow-600', ring: 'ring-yellow-400', bgSoft: 'bg-yellow-50', gradient: 'from-yellow-50 to-orange-50' },
-  { id: 'calm', label: '평온', icon: Meh, color: 'bg-green-400', text: 'text-green-600', ring: 'ring-green-400', bgSoft: 'bg-green-50', gradient: 'from-green-50 to-teal-50' },
-  { id: 'sadness', label: '슬픔', icon: Frown, color: 'bg-blue-400', text: 'text-blue-600', ring: 'ring-blue-400', bgSoft: 'bg-blue-50', gradient: 'from-blue-50 to-indigo-50' },
-  { id: 'anger', label: '화남', icon: Angry, color: 'bg-red-400', text: 'text-red-600', ring: 'ring-red-400', bgSoft: 'bg-red-50', gradient: 'from-red-50 to-pink-50' },
-  { id: 'anxiety', label: '긴장', icon: Zap, color: 'bg-purple-400', text: 'text-purple-600', ring: 'ring-purple-400', bgSoft: 'bg-purple-50', gradient: 'from-purple-50 to-violet-50' },
+  { id: 'joy', label: '기쁨', icon: Smile, img: joyImg, color: 'bg-yellow-400', text: 'text-yellow-600', ring: 'ring-yellow-400', bgSoft: 'bg-yellow-50', gradient: 'from-yellow-50 to-orange-50' },
+  { id: 'calm', label: '평온', icon: Meh, img: calmImg, color: 'bg-green-400', text: 'text-green-600', ring: 'ring-green-400', bgSoft: 'bg-green-50', gradient: 'from-green-50 to-teal-50' },
+  { id: 'sadness', label: '슬픔', icon: Frown, img: sadnessImg, color: 'bg-blue-400', text: 'text-blue-600', ring: 'ring-blue-400', bgSoft: 'bg-blue-50', gradient: 'from-blue-50 to-indigo-50' },
+  { id: 'anger', label: '화남', icon: Angry, img: angerImg, color: 'bg-red-400', text: 'text-red-600', ring: 'ring-red-400', bgSoft: 'bg-red-50', gradient: 'from-red-50 to-pink-50' },
+  { id: 'anxiety', label: '긴장', icon: Zap, img: anxietyImg, color: 'bg-purple-400', text: 'text-purple-600', ring: 'ring-purple-400', bgSoft: 'bg-purple-50', gradient: 'from-purple-50 to-violet-50' },
 ];
 
 const MOCK_SOLUTION = "잠시 하던 일을 멈추고 3분만 눈을 감아보세요. 지금 느끼는 감정은 지나가는 구름과 같습니다. 스스로를 다그치지 말고 있는 그대로 받아들이는 연습이 필요해요.";
@@ -112,9 +148,43 @@ const BottomNav = ({ currentView, onChangeView }) => {
 
 // --- Main App ---
 export default function App() {
-  const [view, setView] = useState('login');
+  const [view, setView] = useState('loading'); // 앱 시작 시 토큰 체크
   const [user, setUser] = useState({ nickname: '', age: '', gender: '' });
-  
+  const [tempToken, setTempToken] = useState(null); // 신규회원 임시 토큰
+  useEffect(() => {
+  const checkAuth = async () => {
+    const token = getToken();
+    if (!token) { setView('login'); return; }
+    try {
+      const userData = await api('/users/me');
+      setUser({ nickname: userData.nickname, age: userData.age, gender: '' });
+      setView('home');
+    } catch (e) {
+      clearTokens();
+      setView('login');
+    }
+  };
+  checkAuth();
+}, []);
+
+// 구글 로그인 버튼 렌더링
+
+useEffect(() => {
+  if (view === 'login' && window.google && googleBtnRef.current) {
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleResponse,
+    });
+    window.google.accounts.id.renderButton(googleBtnRef.current, {
+      theme: 'outline',
+      size: 'large',
+      width: 300,
+      text: 'continue_with',
+      locale: 'ko',
+    });
+  }
+}, [view]);
+
   // Mock Data
   const [records, setRecords] = useState([
     { id: 1, emotionId: 'joy', timestamp: new Date(new Date().setDate(new Date().getDate() - 5)), level: 80, reason: "오랜만에 친구를 만나서 즐거웠다.", solution: null },
@@ -124,7 +194,7 @@ export default function App() {
     { id: 5, emotionId: 'sadness', timestamp: new Date(), level: 70, reason: "비가 와서 우울하다.", solution: { content: MOCK_SOLUTION, evaluation: 0 } },
   ]);
   
-  // Interaction State
+  // Interaction Stat
   const [toast, setToast] = useState({ show: false, message: '', recordId: null });
   // modal types: 'detail_write', 'solution_view', 'share_monthly', 'share_daily', 'delete_confirm'
   const [modal, setModal] = useState({ type: null, data: null }); 
@@ -241,29 +311,44 @@ export default function App() {
       }
       setToast({ show: true, message: "평가되었습니다.", recordId: null });
   };
+// 구글 로그인 Ref & 응답 처리
+  const googleBtnRef = useRef(null);
 
+  const handleGoogleResponse = async (response) => {
+    try {
+      const data = await api('/auth/login/google', {
+        method: 'POST',
+        body: { token: response.credential },
+      });
+      if (data.isNewUser) {
+        setTempToken(data.accessToken);
+        setView('signup');
+      } else {
+        setTokens(data.accessToken, data.refreshToken);
+        const userData = await api('/users/me');
+        setUser({ nickname: userData.nickname, age: userData.age, gender: '' });
+        setView('home');
+      }
+    } catch (err) {
+      alert('로그인에 실패했습니다. 다시 시도해주세요.');
+      console.error(err);
+    }
+  };
   // --- Views ---
-
-  // 1. Login View (Google Only)
-  const LoginView = () => (
-    <div className="h-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-indigo-50 to-purple-50 animate-in fade-in">
-      <div className="mb-16 text-center">
-        <div className="w-24 h-24 bg-indigo-600 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-xl shadow-indigo-200 rotate-3 transition-transform hover:rotate-6">
-          <Smile className="w-12 h-12 text-white" />
-        </div>
-        <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Emotion Log</h1>
-        <p className="text-gray-500">감정 기록부터 AI 솔루션까지</p>
-      </div>
-      <div className="w-full space-y-3">
-        {/* Google Button Only */}
-        <Button variant="google" onClick={() => setView('signup')}>
-            <svg className="w-5 h-5 absolute left-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-            Google 계정으로 시작하기
-        </Button>
+//login view
+const LoginView = () => (
+  <div className="h-full flex flex-col items-end justify-end p-6 animate-in fade-in relative overflow-hidden bg-blue-900">
+    <img src={campusBg} alt="" className="absolute inset-0 w-full h-full object-cover object-center opacity-40" />
+    <div className="absolute inset-0 bg-gradient-to-t from-blue-900 via-blue-900/70 to-transparent"></div>
+    <div className="w-full text-center relative z-10 mb-12">
+      <h1 className="text-4xl font-extrabold text-white mb-1">Emotion Log</h1>
+      <p className="text-blue-200 text-sm mb-8">감정 기록부터 AI 솔루션까지</p>
+      <div className="flex justify-center">
+        <div ref={googleBtnRef}></div>
       </div>
     </div>
-  );
-
+  </div>
+);
   // 2. Signup View
   const SignupView = () => (
     <div className="h-full p-6 bg-white flex flex-col animate-in slide-in-from-right">
@@ -311,9 +396,30 @@ export default function App() {
           </div>
         </div>
       </div>
-      <Button onClick={() => setView('home')} disabled={!user.nickname || !user.age || !user.gender}>
-        가입 완료
-      </Button>
+      <Button onClick={async () => {
+  try {
+    const data = await fetch(`${API_BASE}/auth/signup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${tempToken}`,
+      },
+      body: JSON.stringify({
+        nickname: user.nickname,
+        age: Number(user.age),
+        gender: user.gender,
+      }),
+    }).then(r => r.json());
+    
+    setTokens(data.accessToken, data.refreshToken);
+    setView('home');
+  } catch (err) {
+    alert('회원가입에 실패했습니다.');
+    console.error(err);
+  }
+}} disabled={!user.nickname || !user.age || !user.gender}>
+  가입 완료
+</Button>
     </div>
   );
 
@@ -340,12 +446,10 @@ export default function App() {
                   ${isActive ? `bg-white shadow-lg ring-2 ring-indigo-500 border-indigo-200 scale-105 z-10` : `border-transparent ring-gray-100 hover:ring-indigo-100`}
                 `}
               >
-                <div className="flex justify-between items-center w-full">
-                  <div className={`w-12 h-12 rounded-full ${emo.color} flex items-center justify-center text-white shadow-sm`}>
-                    <emo.icon className="w-6 h-6" />
-                  </div>
-                  {isActive && <CheckCircle className="w-5 h-5 text-indigo-500" />}
-                </div>
+              <div className="flex flex-col items-center w-full">
+    <img src={emo.img} alt={emo.label} className="w-24 h-24 object-contain" />
+    {isActive && <CheckCircle className="w-5 h-5 text-indigo-500" />}
+  </div>
                 <span className={`font-bold text-lg ${isActive ? 'text-indigo-900' : 'text-gray-700'}`}>{emo.label}</span>
               </button>
             )
@@ -579,10 +683,15 @@ export default function App() {
         )}
 
         {/* Content */}
-        <main className={`flex-1 overflow-y-auto px-6 scrollbar-hide ${!['login', 'signup'].includes(view) ? 'pb-24' : ''}`}>
-          {view === 'login' && <LoginView />}
-          {view === 'signup' && <SignupView />}
-          {view === 'home' && <HomeView />}
+           <main className={`flex-1 overflow-y-auto px-6 scrollbar-hide ${!['login', 'signup'].includes(view) ? 'pb-24' : ''}`}>
+          {view === 'loading' && (
+            <div className="h-full flex items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+            </div>
+          )}
+          {view === 'login' && LoginView()}
+          {view === 'signup' && SignupView()}
+          {view === 'home' && HomeView()}
           {view === 'calendar' && (
             <CalendarTab 
               onShareMonthly={(y, m, recs) => setModal({ type: 'share_monthly', data: { year: y, month: m, records: recs } })}
@@ -667,9 +776,7 @@ const DetailModal = ({ record, onClose, onSave, onDelete, onFeedback, isLoading 
         {/* 1. Emotion Selector */}
         <div className="flex flex-col items-center">
           {/* Selected Big Icon */}
-          <div className={`w-24 h-24 rounded-full ${currentEmotion.bgSoft} flex items-center justify-center mb-4 transition-colors duration-300`}>
-            <currentEmotion.icon className={`w-12 h-12 ${currentEmotion.text}`} />
-          </div>
+         <img src={currentEmotion.img} alt={currentEmotion.label} className="w-32 h-32 object-contain mb-4" />
           <h2 className="text-2xl font-bold text-gray-800 mb-6">{currentEmotion.label}</h2>
 
           {/* Quick Change List (only if editable, logic simplified) */}
@@ -680,9 +787,7 @@ const DetailModal = ({ record, onClose, onSave, onDelete, onFeedback, isLoading 
                  onClick={() => setSelectedEmotionId(emo.id)}
                  className={`p-3 rounded-xl transition-all ${selectedEmotionId === emo.id ? 'bg-white shadow-sm ring-2 ring-indigo-500 scale-110' : 'hover:bg-white/50'}`}
                >
-                 <div className={`w-8 h-8 rounded-full ${emo.color} flex items-center justify-center text-white`}>
-                   <emo.icon className="w-4 h-4" />
-                 </div>
+              <img src={emo.img} alt={emo.label} className="w-10 h-10 object-contain" />
                </button>
              ))}
           </div>
@@ -841,9 +946,48 @@ const SolutionModal = ({ data, onClose }) => {
 
 // 1. Daily Share Card
 const ShareDailyModal = ({ data, onClose }) => {
-  // Use the record with the highest level or the last one
+  const cardRef = useRef(null);
+  const [isSaving, setIsSaving] = useState(false);
   const record = data.records.reduce((prev, curr) => prev.level > curr.level ? prev : curr);
   const emotion = EMOTIONS.find(e => e.id === record.emotionId);
+
+  const handleSaveAndShare = useCallback(async () => {
+    if (!cardRef.current || isSaving) return;
+    setIsSaving(true);
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: null,
+      });
+      
+      // 공유 가능 여부 확인 (모바일 등)
+      if (navigator.share && navigator.canShare) {
+        canvas.toBlob(async (blob) => {
+          const file = new File([blob], `emotion-daily-${data.date}.png`, { type: 'image/png' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: '오늘의 감정 기록' });
+          } else {
+            downloadCanvas(canvas);
+          }
+        });
+      } else {
+        downloadCanvas(canvas);
+      }
+    } catch (err) {
+      console.error('캡처 실패:', err);
+      alert('이미지 저장에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [data.date, isSaving]);
+
+  const downloadCanvas = (canvas) => {
+    const link = document.createElement('a');
+    link.download = `emotion-daily-${data.date}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
 
   return (
     <div className="absolute inset-0 bg-black bg-opacity-80 z-50 flex flex-col items-center justify-center p-6 animate-in fade-in backdrop-blur-sm">
@@ -851,7 +995,7 @@ const ShareDailyModal = ({ data, onClose }) => {
         <button onClick={onClose} className="absolute -top-12 right-0 p-2 text-white bg-white/20 rounded-full"><X className="w-6 h-6"/></button>
         
         {/* The Card (9:16 Ratio approx) */}
-        <div className={`w-full aspect-[9/16] bg-gradient-to-br ${emotion.gradient} rounded-[2rem] shadow-2xl p-8 flex flex-col justify-between relative overflow-hidden border-4 border-white/30`}>
+        <div ref={cardRef} className={`w-full aspect-[9/16] bg-gradient-to-br ${emotion.gradient} rounded-[2rem] shadow-2xl p-8 flex flex-col justify-between relative overflow-hidden border-4 border-white/30`}>
            
            {/* Decor */}
            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
@@ -890,54 +1034,86 @@ const ShareDailyModal = ({ data, onClose }) => {
         </div>
 
         <div className="mt-6">
-           <Button variant="primary" icon={Share2} className="bg-white text-indigo-600 hover:bg-gray-50 shadow-none">이미지로 저장하기</Button>
+           <Button variant="primary" icon={isSaving ? Loader2 : Download} onClick={handleSaveAndShare} disabled={isSaving} className="bg-white text-indigo-600 hover:bg-gray-50 shadow-none">
+             {isSaving ? '저장 중...' : '이미지 저장 및 공유'}
+           </Button>
         </div>
       </div>
     </div>
   );
 };
-
 // 2. Monthly Share Card (Recap Style)
 const ShareMonthlyModal = ({ data, onClose }) => {
+  const cardRef = useRef(null);
+  const [isSaving, setIsSaving] = useState(false);
   const { year, month, records } = data;
-  
-  // Calculate Stats (Frontend Logic)
+
   const monthlyRecords = records.filter(r => {
       const d = new Date(r.timestamp);
       return d.getFullYear() === year && d.getMonth() + 1 === month;
   });
 
-  // Most Frequent Emotion
   const emotionCounts = EMOTIONS.map(emo => ({
       ...emo,
       count: monthlyRecords.filter(r => r.emotionId === emo.id).length
   })).sort((a,b) => b.count - a.count);
-  
-  const topEmotion = emotionCounts[0];
-  const total = monthlyRecords.length || 1; // Avoid division by zero
 
-  // Dynamically assign icon for JSX
+  const topEmotion = emotionCounts[0];
+  const total = monthlyRecords.length || 1;
   const TopIcon = topEmotion.icon;
+
+  const handleSaveAndShare = useCallback(async () => {
+    if (!cardRef.current || isSaving) return;
+    setIsSaving(true);
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: null,
+      });
+
+      if (navigator.share && navigator.canShare) {
+        canvas.toBlob(async (blob) => {
+          const file = new File([blob], `emotion-monthly-${year}-${month}.png`, { type: 'image/png' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: `${month}월의 감정 리캡` });
+          } else {
+            downloadCanvas(canvas);
+          }
+        });
+      } else {
+        downloadCanvas(canvas);
+      }
+    } catch (err) {
+      console.error('캡처 실패:', err);
+      alert('이미지 저장에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [year, month, isSaving]);
+
+  const downloadCanvas = (canvas) => {
+    const link = document.createElement('a');
+    link.download = `emotion-monthly-${year}-${month}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
 
   return (
     <div className="absolute inset-0 bg-black bg-opacity-80 z-50 flex flex-col items-center justify-center p-6 animate-in fade-in backdrop-blur-sm">
       <div className="w-full max-w-sm relative">
         <button onClick={onClose} className="absolute -top-12 right-0 p-2 text-white bg-white/20 rounded-full"><X className="w-6 h-6"/></button>
-        
-        {/* The Card (9:16 Ratio approx) */}
-        <div className="w-full aspect-[9/16] bg-gray-900 rounded-[2rem] shadow-2xl p-8 flex flex-col relative overflow-hidden border-4 border-gray-700 text-white">
-           
-           {/* Decor: Dark Theme Gradient */}
+
+        <div ref={cardRef} className="w-full aspect-[9/16] bg-gray-900 rounded-[2rem] shadow-2xl p-8 flex flex-col relative overflow-hidden border-4 border-gray-700 text-white">
+
            <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/20 rounded-full blur-3xl -mr-20 -mt-20"></div>
            <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-600/20 rounded-full blur-3xl -ml-20 -mb-20"></div>
 
-           {/* Header */}
            <div className="relative z-10 mb-6">
-              <h3 className="text-3xl font-extrabold text-white">{month}월의<br/><span className="text-indigo-400">감정 팔레트</span></h3>
+              <h3 className="text-3xl font-extrabold text-white">{month}월의<br/><span className="text-indigo-400">감정 리캡</span></h3>
               <p className="text-gray-400 text-xs mt-2 uppercase tracking-widest">{year} EMOTION RECAP</p>
            </div>
 
-           {/* Main Stat: Top Emotion */}
            <div className="relative z-10 flex items-center gap-4 mb-8">
                <div className={`w-20 h-20 rounded-2xl ${topEmotion.color} flex items-center justify-center text-white shadow-lg shadow-indigo-500/30`}>
                    <TopIcon className="w-10 h-10" />
@@ -949,7 +1125,6 @@ const ShareMonthlyModal = ({ data, onClose }) => {
                </div>
            </div>
 
-           {/* Palette Bar Chart */}
            <div className="relative z-10 flex-1">
                <h4 className="text-sm font-bold text-gray-400 mb-3 flex items-center gap-2">
                    <BarChart2 className="w-4 h-4" /> 감정 비율
@@ -962,30 +1137,28 @@ const ShareMonthlyModal = ({ data, onClose }) => {
                                <span>{Math.round((emo.count / total) * 100)}%</span>
                            </div>
                            <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden">
-                               <div 
-                                   className={`h-full ${emo.color}`} 
-                                   style={{ width: `${(emo.count / total) * 100}%` }}
-                               ></div>
+                               <div className={`h-full ${emo.color}`} style={{ width: `${(emo.count / total) * 100}%` }}></div>
                            </div>
                        </div>
                    ))}
                </div>
            </div>
-           
-           {/* Insight Box */}
+
            <div className="relative z-10 mt-6 bg-gray-800/50 p-4 rounded-xl border border-gray-700">
                <div className="flex items-center gap-2 mb-2 text-indigo-400 text-xs font-bold uppercase">
                    <TrendingUp className="w-3 h-3" /> AI Insight
                </div>
                <p className="text-gray-300 text-xs leading-relaxed">
-                   "이번 달은 긍정적인 감정이 {Math.round(((emotionCounts.find(e=>e.id==='joy')?.count||0) + (emotionCounts.find(e=>e.id==='calm')?.count||0))/total*100)}%를 차지했어요. 주말에 특히 기분이 좋으시네요!"
+                   "이번 달은 긍정적인 감정이 {Math.round(((emotionCounts.find(e=>e.id==='joy')?.count||0) + (emotionCounts.find(e=>e.id==='calm')?.count||0))/total*100)}%를 차지했어요. 꾸준히 기록해 볼까요?"
                </p>
            </div>
-           
+
         </div>
 
         <div className="mt-6">
-           <Button variant="primary" icon={Download} className="bg-white text-gray-900 hover:bg-gray-100 shadow-none border-none">저장 및 공유</Button>
+           <Button variant="primary" icon={isSaving ? Loader2 : Download} onClick={handleSaveAndShare} disabled={isSaving} className="bg-white text-gray-900 hover:bg-gray-100 shadow-none border-none">
+             {isSaving ? '저장 중...' : '저장 및 공유'}
+           </Button>
         </div>
       </div>
     </div>
