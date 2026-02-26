@@ -360,6 +360,7 @@ export default function App() {
         setTokens(data.accessToken, data.refreshToken);
         const userData = await api('/users/me');
         setUser({ nickname: userData.nickname, age: userData.age, gender: '' });
+        fetchRecords();
         setView('home');
       }
     } catch (err) {
