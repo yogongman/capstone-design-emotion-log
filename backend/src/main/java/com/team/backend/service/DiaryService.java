@@ -110,7 +110,10 @@ public class DiaryService {
         List<EmotionRecord> records = emotionRecordRepository.findAllByUserAndRecordedAtBetweenOrderByRecordedAtDesc(user, start, end);
 
         return records.stream()
-                .map(EmotionRecordResponse::from)
+                .map(record -> {
+                    Solution solution = solutionRepository.findByEmotionRecord(record).orElse(null);
+                    return EmotionRecordResponse.from(record, solution);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -136,7 +139,10 @@ public class DiaryService {
     public List<EmotionRecordResponse> getRecentRecords(User user) {
         List<EmotionRecord> records = emotionRecordRepository.findTop5ByUserOrderByRecordedAtDesc(user);
         return records.stream()
-                .map(EmotionRecordResponse::from)
+                .map(record -> {
+                    Solution solution = solutionRepository.findByEmotionRecord(record).orElse(null);
+                    return EmotionRecordResponse.from(record, solution);
+                })
                 .collect(Collectors.toList());
     }
 }
