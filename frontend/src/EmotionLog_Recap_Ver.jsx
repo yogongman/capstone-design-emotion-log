@@ -25,7 +25,7 @@ import campusBg from './assets/campus-bg.png';
  * 9. 상세 기록 UX 개선 (New): 저장 버튼과 AI 요청 버튼 분리, 솔루션 영역 고정 UI 적용
  */
 // --- API Configuration ---
-const API_BASE = 'http://100.97.96.61:8081/api/v1';
+const API_BASE = '/api/v1';
 const GOOGLE_CLIENT_ID = '977745517550-qck18t5ns3ujsl1kbc3r8afa31t9og5s.apps.googleusercontent.com';
 
 const getToken = () => localStorage.getItem('accessToken');
