@@ -103,6 +103,10 @@ public class SolutionService {
         }
 
         solution.updateScore(score);
+
+        // 학습 데이터용 로그도 업데이트 (가장 최근 로그라고 가정)
+        solutionLogRepository.findTopByEmotionRecordOrderByCreatedAtDesc(solution.getEmotionRecord())
+                .ifPresent(log -> log.updateScore(score));
     }
 
     // ==========================================

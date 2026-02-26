@@ -20,6 +20,7 @@ public class EmotionRecordResponse {
     @Getter
     @Builder
     public static class SolutionInfo {
+        private Long id; // [추가] 솔루션 ID
         private String content;
         private Integer evaluation;
     }
@@ -28,6 +29,7 @@ public class EmotionRecordResponse {
         SolutionInfo solutionInfo = null;
         if (solutionEntity != null) {
             solutionInfo = SolutionInfo.builder()
+                    .id(solutionEntity.getId())
                     .content(solutionEntity.getContent())
                     .evaluation(solutionEntity.getEvalScore())
                     .build();

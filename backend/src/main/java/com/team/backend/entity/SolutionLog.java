@@ -32,4 +32,8 @@ public class SolutionLog {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    public void updateScore(Integer score) {
+        this.evalScore = score;
+    }
 }
