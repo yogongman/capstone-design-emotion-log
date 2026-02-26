@@ -47,3 +47,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "9999:8080"
+
+  # 5. Cloudflare Tunnel
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: team-cloudflared
+    restart: always
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
