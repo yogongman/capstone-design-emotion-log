@@ -95,7 +95,9 @@ public class SecurityConfig {
                 "http://127.0.0.1:3000",
                 "http://127.0.0.1:5173",
                 "http://127.0.0.1:5500", // Live Server
-                "http://localhost:5500"
+                "http://localhost:5500",
+                "https://yogongman.dev",
+                "https://www.yogongman.dev"
         ));
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
