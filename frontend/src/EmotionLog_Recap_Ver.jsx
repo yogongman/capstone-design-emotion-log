@@ -206,6 +206,7 @@ export default function App() {
   // modal types: 'detail_write', 'solution_view', 'share_monthly', 'share_daily', 'delete_confirm'
   const [modal, setModal] = useState({ type: null, data: null });
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // Quick Record State
   const [activeQuickEmotion, setActiveQuickEmotion] = useState(null);
@@ -344,6 +345,20 @@ export default function App() {
       alert(`평가 전송 실패: ${e.message}`);
     }
   };
+  // 로그아웃
+  const handleLogout = async () => {
+    try {
+      await api('/auth/logout', { method: 'POST' });
+    } catch (e) {
+      console.warn('Logout API failed:', e);
+    } finally {
+      clearTokens();
+      setProfileOpen(false);
+      setRecords([]);
+      setView('login');
+    }
+  };
+
   // 구글 로그인 Ref & 응답 처리
   const googleBtnRef = useRef(null);
 
@@ -712,7 +727,33 @@ export default function App() {
         {!['login', 'signup'].includes(view) && (
           <header className="px-6 py-5 flex justify-between items-center bg-white z-10 sticky top-0">
             <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">Emotion Log</h1>
-            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"><User className="w-5 h-5 text-gray-500" /></div>
+            <div className="relative">
+              <button
+                onClick={() => setProfileOpen(prev => !prev)}
+                className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center hover:bg-indigo-200 transition-colors"
+              >
+                <User className="w-5 h-5 text-indigo-600" />
+              </button>
+              {profileOpen && (
+                <>
+                  {/* 바깥 클릭 시 닫기 */}
+                  <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                      <p className="text-xs text-gray-400 font-medium">로그인된 계정</p>
+                      <p className="text-sm font-bold text-gray-800 mt-0.5 truncate">{user.nickname || '사용자'}</p>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-500 font-semibold hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      로그아웃
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </header>
         )}
 

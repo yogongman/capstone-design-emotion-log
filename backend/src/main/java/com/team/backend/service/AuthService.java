@@ -132,6 +132,16 @@ public class AuthService {
     }
 
     /**
+     * 로그아웃 - DB의 RefreshToken 초기화
+     */
+    @Transactional
+    public void logout(User user) {
+        user.updateRefreshToken(null);
+        userRepository.save(user);
+        log.info("User logged out - UserId: {}", user.getId());
+    }
+
+    /**
      * Refresh Token으로 새로운 AccessToken 발급
      */
     @Transactional

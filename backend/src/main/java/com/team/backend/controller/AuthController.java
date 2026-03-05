@@ -107,4 +107,19 @@ public class AuthController {
 
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * 로그아웃
+     * POST /api/v1/auth/logout
+     *
+     * 헤더: Authorization: Bearer {access_token}
+     * 응답: { "success": true }
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, Object>> logout(@LoginUser User user) {
+        authService.logout(user);
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        return ResponseEntity.ok(response);
+    }
 }
