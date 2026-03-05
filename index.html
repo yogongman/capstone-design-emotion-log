@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion Log API v1.2 Full Test</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background-color: #f4f4f9; }
+        h1, h2, h3 { color: #333; border-bottom: 2px solid #ddd; padding-bottom: 5px; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 100%; margin-bottom: 20px; }
+        .row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        
+        input, select, button { padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; transition: background 0.3s; }
+        button:hover { background-color: #0056b3; }
+        button.delete { background-color: #dc3545; }
+        button.delete:hover { background-color: #a71d2a; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        label { font-weight: bold; min-width: 80px; }
+
+        /* 로그 영역 */
+        #logArea { 
+            background: #1e1e1e; color: #0f0; 
+            padding: 15px; height: 400px; 
+            overflow-y: scroll; border-radius: 8px; 
+            font-family: monospace; white-space: pre-wrap; 
+            border: 2px solid #333;
+        }
+        .status-badge { display: inline-block; padding: 5px 10px; border-radius: 15px; font-size: 0.8em; margin-left: 10px; }
+        .status-ok { background: #d4edda; color: #155724; }
+        .status-err { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+
+    <h1>🧪 Emotion Log API v1.2 통합 테스트</h1>
+    <p>서버 상태: <span id="serverStatus">❓ 연결 확인 중...</span></p>
+
+    <div class="card">
+        <h2>1. 인증 (Auth)</h2>
+        <div id="g_id_onload"
+             data-client_id="977745517550-qck18t5ns3ujsl1kbc3r8afa31t9og5s.apps.googleusercontent.com" 
+             data-callback="handleCredentialResponse"
+             data-auto_prompt="false">
+        </div>
+        <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="sign_in_with"></div>
+        
+        <div class="row" style="margin-top: 15px;">
+            <label>Token:</label>
+            <input type="text" id="accessToken" placeholder="로그인하면 토큰이 여기에 표시됩니다" style="flex:1;" readonly>
+            <button onclick="getMyInfo()">내 정보 조회 (GET /users/me)</button>
+        </div>
+        <div id="userInfoResult" style="color: blue; font-weight: bold;"></div>
+    </div>
+
+    <div class="container">
+        <div class="card" style="flex: 1;">
+            <h2>2. 감정 기록 (Records)</h2>
+            <div class="row">
+                <label>감정:</label>
+                <select id="emotionId">
+                    <option value="joy">기쁨 (Joy)</option>
+                    <option value="sadness">슬픔 (Sadness)</option>
+                    <option value="anger">분노 (Anger)</option>
+                    <option value="anxiety">불안 (Anxiety)</option>
+                    <option value="neutral">평온 (Neutral)</option>
+                </select>
+            </div>
+            <div class="row">
+                <label>강도:</label>
+                <select id="level">
+                    <option value="20">20 (약함)</option>
+                    <option value="40">40</option>
+                    <option value="60">60 (보통)</option>
+                    <option value="80">80</option>
+                    <option value="100">100 (강함)</option>
+                </select>
+            </div>
+            <div class="row">
+                <label>내용:</label>
+                <input type="text" id="reason" placeholder="오늘 무슨 일이 있었나요?" style="flex:1;">
+            </div>
+            <div class="row">
+                <button onclick="createRecord()">💾 기록 저장 (POST /records)</button>
+            </div>
+
+            <hr>
+
+            <h3>현재 선택된 기록 ID: <span id="currentRecordId" style="color:red;">없음</span></h3>
+            <div class="row">
+                <button onclick="updateRecord()">✏️ 수정 (PATCH)</button>
+                <button onclick="deleteRecord()" class="delete">🗑️ 삭제 (DELETE)</button>
+            </div>
+        </div>
+
+        <div class="card" style="flex: 1;">
+            <h2>3. 조회 & AI 솔루션</h2>
+            <div class="row">
+                <button onclick="getRecentRecords()">🏠 홈: 최근 기록 (GET /recent)</button>
+            </div>
+            <div class="row">
+                <button onclick="getMonthlyRecords()">📅 캘린더: 월간 조회 (GET /monthly)</button>
+                <button onclick="getDailyRecords()">📝 일간 상세 조회 (GET /daily)</button>
+            </div>
+
+            <hr>
+
+            <h2>4. AI 솔루션 (Solutions)</h2>
+            <p>※ 왼쪽에서 '기록 저장' 후 ID가 생성되어야 합니다.</p>
+            <div class="row">
+                <button onclick="generateSolution()" style="background:#6f42c1;">🤖 솔루션 생성 (POST /generate)</button>
+            </div>
+            <h3>솔루션 ID: <span id="currentSolutionId" style="color:purple;">없음</span></h3>
+            <div class="row">
+                <label>평점:</label>
+                <select id="solutionScore">
+                    <option value="5">5점 (매우 만족)</option>
+                    <option value="4">4점</option>
+                    <option value="3">3점</option>
+                    <option value="2">2점</option>
+                    <option value="1">1점</option>
+                </select>
+                <button onclick="sendFeedback()">⭐ 평가 전송 (POST /feedback)</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="row" style="justify-content: space-between;">
+            <h2>📡 통신 로그 (Console)</h2>
+            <button onclick="document.getElementById('logArea').textContent = ''" style="background:#666;">로그 지우기</button>
+        </div>
+        <div id="logArea">로그 대기 중...</div>
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <script>
+        // ==========================================
+        // [설정] 본인의 환경에 맞게 수정하세요!
+        // ==========================================
+        
+        // sslip.io 주소 사용 (포트 8081 확인)
+        const API_BASE = "http://100.97.96.61.sslip.io:8081/api/v1"; 
+
+        // ==========================================
+
+        let JWT_TOKEN = "";
+        let CURRENT_RECORD_ID = null;
+        let CURRENT_SOLUTION_ID = null;
+
+        // 로그 출력 함수
+        function log(msg, data = null) {
+            const logArea = document.getElementById("logArea");
+            const time = new Date().toLocaleTimeString();
+            let text = `[${time}] ${msg}`;
+            if (data) text += "\n" + JSON.stringify(data, null, 2);
+            logArea.textContent = text + "\n" + "-".repeat(50) + "\n" + logArea.textContent;
+        }
+
+        // 공통 Fetch 함수 (헤더에 토큰 자동 추가)
+        async function authFetch(endpoint, method = "GET", body = null) {
+            if (!JWT_TOKEN) {
+                alert("먼저 구글 로그인을 해주세요!");
+                return null;
+            }
+
+            const options = {
+                method: method,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + JWT_TOKEN
+                }
+            };
+
+            if (body) options.body = JSON.stringify(body);
+
+            try {
+                log(`🚀 요청: ${method} ${endpoint}`, body);
+                const res = await fetch(`${API_BASE}${endpoint}`, options);
+                
+                log(`📡 응답 상태: ${res.status} ${res.statusText}`);
+
+                const text = await res.text();
+                if (!text) return null; // 빈 응답 처리
+
+                try {
+                    const json = JSON.parse(text);
+                    log("📦 응답 데이터:", json);
+                    return json;
+                } catch (e) {
+                    log("📦 응답 (Text):", text);
+                    return text;
+                }
+            } catch (err) {
+                log("❌ 네트워크 에러:", err);
+                return null;
+            }
+        }
+
+        // 1. 구글 로그인 콜백
+        async function handleCredentialResponse(response) {
+            log("🔵 구글 ID Token 획득 완료.");
+            
+            try {
+                // 백엔드 로그인 요청 (v1.2: POST /auth/login/google)
+                const res = await fetch(`${API_BASE}/auth/login/google`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: response.credential })
+                });
+
+                const data = await res.json();
+                log("🟢 백엔드 로그인 결과:", data);
+
+                if (data.isNewUser) {
+                    alert("신규 회원입니다! 회원가입 API(/auth/signup) 테스트가 필요합니다. (이 페이지에서는 기존 회원 가정)");
+                    JWT_TOKEN = data.accessToken; // 임시 토큰
+                } else {
+                    JWT_TOKEN = data.accessToken;
+                    document.getElementById("accessToken").value = JWT_TOKEN.substring(0, 30) + "...";
+                    document.getElementById("serverStatus").innerHTML = "<span class='status-badge status-ok'>연결됨</span>";
+                    getMyInfo(); // 로그인 직후 내 정보 조회
+                }
+
+            } catch (err) {
+                log("❌ 로그인 실패:", err);
+            }
+        }
+
+        // 2. 내 정보 조회 (GET /users/me)
+        async function getMyInfo() {
+            const data = await authFetch("/users/me");
+            if (data) {
+                document.getElementById("userInfoResult").innerText = 
+                    `ID: ${data.id} / 닉네임: ${data.nickname} / 이메일: ${data.email}`;
+            }
+        }
+
+        // 3. 기록 저장 (POST /records)
+        async function createRecord() {
+            const emotionType = document.getElementById("emotionId").value;
+            const level = parseInt(document.getElementById("level").value);
+            const reason = document.getElementById("reason").value;
+
+            // v1.2 명세에 맞춘 Body
+            const body = {
+                emotionType: emotionType,
+                level: level,
+                reason: reason,
+                recordedAt: new Date().toISOString() // 현재 시간
+            };
+
+            const data = await authFetch("/records", "POST", body);
+            if (data && data.id) {
+                CURRENT_RECORD_ID = data.id;
+                document.getElementById("currentRecordId").innerText = CURRENT_RECORD_ID;
+                alert(`기록 저장 성공! ID: ${CURRENT_RECORD_ID}`);
+            }
+        }
+
+        // 4. 기록 수정 (PATCH /records/{id})
+        async function updateRecord() {
+            if (!CURRENT_RECORD_ID) return alert("수정할 기록 ID가 없습니다. 먼저 저장하세요.");
+
+            const body = {
+                emotionType: "neutral", // 테스트로 감정 변경
+                level: 50,
+                reason: "수정된 내용입니다. (API 테스트 중)"
+            };
+
+            const data = await authFetch(`/records/${CURRENT_RECORD_ID}`, "PATCH", body);
+            if (data && data.success) {
+                alert("기록 수정 성공!");
+            }
+        }
+
+        // 5. 기록 삭제 (DELETE /records/{id})
+        async function deleteRecord() {
+            if (!CURRENT_RECORD_ID) return alert("삭제할 기록 ID가 없습니다.");
+            if (!confirm("정말 삭제하시겠습니까?")) return;
+
+            const data = await authFetch(`/records/${CURRENT_RECORD_ID}`, "DELETE");
+            if (data && data.success) {
+                alert("기록 삭제 성공!");
+                CURRENT_RECORD_ID = null;
+                document.getElementById("currentRecordId").innerText = "삭제됨";
+            }
+        }
+
+        // 6. 최근 기록 조회 (GET /records/recent)
+        async function getRecentRecords() {
+            await authFetch("/records/recent");
+        }
+
+        // 7. 월간 기록 조회 (GET /records/monthly)
+        async function getMonthlyRecords() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            await authFetch(`/records/monthly?year=${year}&month=${month}`);
+        }
+
+        // 8. 일간 기록 조회 (GET /records/daily)
+        async function getDailyRecords() {
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            await authFetch(`/records/daily?date=${today}`);
+        }
+
+        // 9. 솔루션 생성 (POST /solutions/generate)
+        async function generateSolution() {
+            if (!CURRENT_RECORD_ID) return alert("먼저 감정 기록을 저장해주세요!");
+
+            const body = { recordId: CURRENT_RECORD_ID };
+            
+            // 로딩 표시
+            log("🤖 AI가 솔루션을 생성 중입니다... (시간 소요됨)");
+            
+            const data = await authFetch("/solutions/generate", "POST", body);
+            if (data && data.solutionId) {
+                CURRENT_SOLUTION_ID = data.solutionId;
+                document.getElementById("currentSolutionId").innerText = CURRENT_SOLUTION_ID;
+                log("✅ 솔루션 내용:", data.content);
+                alert("솔루션 생성 완료! 로그를 확인하세요.");
+            }
+        }
+
+        // 10. 솔루션 피드백 (POST /solutions/{id}/feedback)
+        async function sendFeedback() {
+            if (!CURRENT_SOLUTION_ID) return alert("평가할 솔루션이 없습니다.");
+
+            const score = parseInt(document.getElementById("solutionScore").value);
+            const body = { score: score };
+
+            const data = await authFetch(`/solutions/${CURRENT_SOLUTION_ID}/feedback`, "POST", body);
+            if (data && data.success) {
+                alert("피드백 전송 성공!");
+            }
+        }
+
+    </script>
+</body>
+</html>

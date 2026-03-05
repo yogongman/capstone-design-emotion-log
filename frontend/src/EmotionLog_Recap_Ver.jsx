@@ -359,6 +359,21 @@ export default function App() {
     }
   };
 
+  // 회원 탈퇴
+  const handleDeleteAccount = async () => {
+    try {
+      await api('/users/me', { method: 'DELETE' });
+    } catch (e) {
+      console.warn('Delete account API failed:', e);
+    } finally {
+      clearTokens();
+      setProfileOpen(false);
+      setRecords([]);
+      setModal({ type: null, data: null });
+      setView('login');
+    }
+  };
+
   // 구글 로그인 Ref & 응답 처리
   const googleBtnRef = useRef(null);
 
@@ -750,6 +765,13 @@ export default function App() {
                       <LogOut className="w-4 h-4" />
                       로그아웃
                     </button>
+                    <div className="border-t border-gray-100" />
+                    <button
+                      onClick={() => { setProfileOpen(false); setModal({ type: 'delete_account', data: null }); }}
+                      className="w-full flex items-center gap-2 px-4 py-3 text-xs text-gray-400 font-medium hover:bg-gray-50 transition-colors"
+                    >
+                      회원 탈퇴
+                    </button>
                   </div>
                 </>
               )}
@@ -803,6 +825,39 @@ export default function App() {
         {modal.type === 'share_monthly' && <ShareMonthlyModal data={modal.data} onClose={() => setModal({ type: null, data: null })} />}
 
         {/* Delete Confirmation Modal */}
+        {modal.type === 'delete_confirm' && (
+          <DeleteConfirmModal
+            onConfirm={confirmDelete}
+            onCancel={cancelDelete}
+          />
+        )}
+
+        {/* Delete Account Confirmation Modal */}
+        {modal.type === 'delete_account' && (
+          <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-6">
+            <div className="bg-white rounded-2xl p-6 shadow-2xl w-full max-w-sm">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">회원 탈퇴</h3>
+              <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+                정말로 탈퇴하시겠습니까?<br />
+                모든 감정 기록과 AI 솔루션이 영구 삭제되며 복구할 수 없습니다.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setModal({ type: null, data: null })}
+                  className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  className="flex-1 py-3 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-600 transition-colors"
+                >
+                  탈퇴하기
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {modal.type === 'delete_confirm' && (
           <DeleteConfirmModal
             onConfirm={confirmDelete}

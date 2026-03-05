@@ -22,4 +22,7 @@ public interface EmotionRecordRepository extends JpaRepository<EmotionRecord, Lo
     //임베딩이 있는 내 과거 기록들 모두 조회 (유사도 계산용)
     // 단, 현재 작성 중인 일기(targetId)는 제외하고 가져옴
     List<EmotionRecord> findAllByUserAndEmbeddingIsNotNullAndIdNot(User user, Long recordId);
+
+    // 회원 탈퇴 시 해당 유저의 모든 기록 조회용
+    List<EmotionRecord> findAllByUser(User user);
 }

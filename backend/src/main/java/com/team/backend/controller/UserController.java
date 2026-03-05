@@ -6,8 +6,12 @@ import com.team.backend.entity.User;
 import com.team.backend.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -30,6 +34,21 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<UserInfoResponse> getMyInfo(@LoginUser User user) {
         UserInfoResponse response = userService.getUserInfo(user.getId());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 회원 탈퇴
+     * DELETE /api/v1/users/me
+     *
+     * 헤더: Authorization: Bearer {accessToken}
+     * 응답: { "success": true }
+     */
+    @DeleteMapping("/me")
+    public ResponseEntity<Map<String, Object>> deleteMyAccount(@LoginUser User user) {
+        userService.deleteUser(user);
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
         return ResponseEntity.ok(response);
     }
 }
